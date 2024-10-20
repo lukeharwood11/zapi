@@ -4,31 +4,34 @@ const http = std.http;
 const fs = std.fs;
 
 const RequestError = error{
-    UnsupportedVersion,
-    MalformattedRequest,
+    UnsupportedHTTPVersion,
+    MalformattedHTTPRequest,
 };
 
 const host = "127.0.0.1";
 const port = 8080;
+
+const TestBody = struct { my: []const u8, cool: []const u8, property: u8 };
 
 const Request = struct {
     // version: http.Version,
     method: http.Method,
     path: []const u8,
     headers: std.StringHashMap([]const u8),
+    body: ?[]const u8,
 
     fn init(allocator: std.mem.Allocator, request: []const u8) !Request {
         var it = std.mem.split(u8, request, " ");
         const method = it.next() orelse {
-            return RequestError.MalformattedRequest;
+            return RequestError.MalformattedHTTPRequest;
         };
         const path = it.next() orelse {
-            return RequestError.MalformattedRequest;
+            return RequestError.MalformattedHTTPRequest;
         };
-        it.delimiter = "\r\n";
+        it.delimiter = "\r\n"; // start of version
         const version = it.next().?;
         if (!std.mem.eql(u8, version, "HTTP/1.1")) {
-            return RequestError.UnsupportedVersion;
+            return RequestError.UnsupportedHTTPVersion;
         }
         // parse out the headers
         var hp = http.HeaderIterator.init(it.rest());
@@ -36,12 +39,23 @@ const Request = struct {
         while (hp.next()) |header| {
             try headers.put(header.name, header.value);
         }
+        it.delimiter = "\r\n\r\n"; // body
+        _ = it.next(); // move on to the end of the headers
+        var body: ?[]const u8 = null;
+        if (it.next()) |data| {
+            // ensure it isn't empty
+            if (data.len > 0) {
+                std.debug.print("{s}", .{data});
+                body = data;
+            }
+        }
         return .{
             .method = std.meta.intToEnum(http.Method, http.Method.parse(method)) catch {
-                return RequestError.MalformattedRequest;
+                return RequestError.MalformattedHTTPRequest;
             },
             .path = path,
             .headers = headers,
+            .body = body,
         };
     }
 
@@ -69,13 +83,21 @@ pub fn main() !void {
         defer conn.stream.close();
         var buf: [4096]u8 = undefined;
         // read in request from the buffer
-        _ = try conn.stream.read(&buf);
-        var request = try Request.init(allocator, &buf);
+        const len = try conn.stream.read(&buf);
+        var request = try Request.init(allocator, buf[0..len]);
         defer request.deinit();
+
+        if (request.body) |body| {
+            const parsed = try std.json.parseFromSlice(TestBody, allocator, body, .{});
+            defer parsed.deinit();
+            std.log.info("TEST: {s}", .{parsed.value.my});
+        }
 
         const response_prefix = "HTTP/1.1 200 OK";
         // file
-        const file = try fs.cwd().openFile("index.html", .{ .mode = .read_only });
+        // const file = try fs.cwd().openFile("index.html", .{ .mode = .read_only });
+        const file = try fs.cwd().openFile("./src/openapi.html", .{ .mode = .read_only });
+
         defer file.close();
         // file reader
         var reader = file.reader();
@@ -95,4 +117,18 @@ test "request" {
     var request = try Request.init(allocator, test_request);
     defer request.deinit();
     try std.testing.expect(std.mem.eql(u8, "/", request.path));
+}
+
+fn ProcessType(comptime K: type) []const u8 {
+    var string: []const u8 = "";
+    inline for (std.meta.fields(K)) |f| {
+        string = string ++ f.name ++ ":" ++ @typeName(f.type);
+        string = string ++ "\n";
+    }
+    return string;
+}
+
+test "test fields" {
+    const string = comptime ProcessType(TestBody);
+    std.debug.print("{s}", .{string});
 }
