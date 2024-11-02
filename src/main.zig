@@ -29,9 +29,10 @@ pub fn main() !void {
         };
 
         body: Body,
-        pub fn handler(request: Request, response: Response) void {
-            _ = request;
-            _ = response;
+        pub fn handler(_: *Request, res: *Response) void {
+            res.send(.{
+                .hello = "world",
+            }, .{});
         }
     });
 

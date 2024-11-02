@@ -68,10 +68,7 @@ pub const App = struct {
             // parse request
             var request = try Request.init(self.allocator, buf[0..len]);
             defer request.deinit();
-            var response = Response{
-                .stream = conn.stream,
-            };
-
+            var response = Response{ .stream = conn.stream, .allocator = self.allocator };
             try self.root_router.handle(&request, &response);
         }
     }

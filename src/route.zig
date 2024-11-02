@@ -4,7 +4,7 @@ const Request = @import("./request.zig").Request;
 const Response = @import("./response.zig").Response;
 const Method = @import("./http.zig").Method;
 
-const HandlerFn = *const fn (Request, Response) void;
+const HandlerFn = *const fn (*Request, *Response) void;
 
 const RouteHandler = struct {
     func: HandlerFn,
@@ -29,10 +29,15 @@ pub const Router = struct {
     }
 
     pub fn handle(self: *Router, request: *Request, response: *Response) !void {
-        _ = self;
-        _ = request;
-        _ = response;
-
+        // TODO: make this more efficient
+        for (self.handlers.items) |handler| {
+            if (std.mem.eql(u8, handler.path, request.path) and handler.method == request.method) {
+                handler.func(request, response);
+                break;
+            }
+        } else {
+            // 404
+        }
         // TODO: make this generic
         // const response_prefix = "HTTP/1.1 200 OK";
         // file
