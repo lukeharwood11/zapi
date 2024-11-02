@@ -21,7 +21,7 @@ pub const Info = struct {
     termsOfService: ?[]const u8 = null, // link
     contact: ?Contact = null,
     license: ?License = null,
-    version: []const u8 = default_openapi_version, // "1.0.1"
+    version: []const u8 = default_openapi_version,
 };
 
 pub const ExternalDocs = struct {
@@ -60,16 +60,61 @@ pub const Properties = struct {
     format: []const u8, // "int32"
     example: ?[]const u8 = null, // Implement this later
 
-    pub inline fn parse(field: std.builtin.Type.StructField) Properties {
-        switch (@typeInfo(field.type)) {
-            .Int => std.debug.print("Found int. {s}\n", .{field.name}),
-            .Struct => std.debug.print("Found struct. {s}\n", .{field.name}),
-            .Bool => std.debug.print("Found boolean: {s}\n", .{field.name}),
-            else => |catchall| std.debug.print("Found unsupported type. {s}\n", .{@tagName(catchall)}),
+    pub inline fn parse(comptime field: std.builtin.Type.StructField) Properties {
+        return switch (@typeInfo(field.type)) {
+            .Int => comptime parseInt(field.type),
+            .Struct => comptime parseStruct(field.type),
+            .Bool => comptime parseBoolean(),
+            .Array => comptime parseArray(field.type),
+            .Pointer => comptime parsePointer(field.type),
+            else => |catchall| @compileError("Failed to parse type '" ++ @tagName(catchall) ++ "'."),
+        };
+    }
+
+    fn parseArray(comptime Array: type) Properties {
+        @compileError("'" ++ @typeName(Array) ++ "' are not supported, slices should be used instead.");
+    }
+
+    fn parsePointer(comptime Pointer: type) Properties {
+        const name = @typeName(Pointer);
+        if (std.mem.eql(u8, name, "[]const u8")) {}
+        return .{
+            .type = "unknown",
+            .format = "unknown",
+        };
+    }
+
+    fn parseInt(comptime Int: type) Properties {
+        const name = @typeName(Int);
+        if (!std.mem.eql(u8, name, "i32") and !std.mem.eql(u8, name, "i64")) {
+            @compileError("Integer body parameter must be i32, or i64. Found type '" ++ name ++ "'.");
         }
         return .{
             .type = "integer",
-            .format = "int32",
+            .format = if (std.mem.eql(u8, name, "i32")) "int32" else "i64",
+        };
+    }
+
+    fn parseFloat(comptime Float: type) Properties {
+        _ = Float;
+        return .{
+            .type = "float",
+            .format = "double",
+        };
+    }
+
+    fn parseStruct(comptime Struct: type) Properties {
+        _ = Struct;
+        return .{
+            .type = "unknown",
+            .format = "unknown",
+        };
+    }
+
+    fn parseBoolean() Properties {
+        return .{
+            .type = "boolean",
+            .format = "boolean",
         };
     }
 };
@@ -77,7 +122,6 @@ pub const Properties = struct {
 pub const Schema = struct {
     name: []const u8,
     properties: []Properties,
-
     pub fn parse(comptime T: type) Schema {
         if (@typeInfo(T) != .Struct) {
             @compileError("Expected struct, found '" ++ @typeName(T) ++ "'");

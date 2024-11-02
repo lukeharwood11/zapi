@@ -3,15 +3,6 @@ const App = @import("./app.zig").App;
 const Request = @import("./request.zig").Request;
 const Response = @import("./response.zig").Response;
 
-// fn processType(comptime K: type) []const u8 {
-//     var string: []const u8 = "";
-//     inline for (std.meta.fields(K)) |f| {
-//         string = string ++ f.name ++ ":" ++ @typeName(f.type);
-//         string = string ++ "\n";
-//     }
-//     return string;
-// }
-
 pub fn main() !void {
     // create allocator
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -24,12 +15,12 @@ pub fn main() !void {
 
     try app.mount(.POST, "/api/v1/hello", struct {
         /// All fields must be `pub` to be registered by the openapi engine
-        // pub const Tags: [][]const u8 = ([1][]const u8{"string"})[0..];
         pub const Body = struct {
+            my: []const u8,
             hello: i32 = 1,
             world: i32 = 2,
         };
-        pub fn handler(_: *Request, res: *Response) void {
+        pub fn sayHelloWorld(_: *Request, res: *Response) void {
             res.send(.{
                 .hello = "world",
             }, .{});
