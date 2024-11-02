@@ -19,16 +19,16 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     // create app
-    var app = App.init(allocator, .{ .name = "My Test App" });
+    var app = App.init(allocator, .{ .title = "My Test App" });
     defer app.deinit();
 
     try app.mount(.POST, "/api/v1/hello", struct {
-        const Body = struct {
-            hello: i32,
-            world: i32,
+        /// All fields must be `pub` to be registered by the openapi engine
+        // pub const Tags: [][]const u8 = ([1][]const u8{"string"})[0..];
+        pub const Body = struct {
+            hello: i32 = 1,
+            world: i32 = 2,
         };
-
-        body: Body,
         pub fn handler(_: *Request, res: *Response) void {
             res.send(.{
                 .hello = "world",

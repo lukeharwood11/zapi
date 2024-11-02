@@ -1,50 +1,52 @@
+const std = @import("std");
 /// https://swagger.io/specification/
-const default_openapi_version = "3.0.2";
+pub const default_openapi_version = "3.0.2";
+pub const default_title = "Zippy App";
 
-const Contact = struct {
+pub const Contact = struct {
     name: []const u8,
     url: []const u8,
     email: []const u8,
 };
 
-const License = struct {
+pub const License = struct {
     name: []const u8,
     url: []const u8,
 };
 
-const Info = struct {
-    title: []const u8,
-    summary: []const u8,
-    description: []const u8,
-    termsOfService: []const u8, // link
-    contact: Contact,
-    license: License,
-    version: []const u8, // "1.0.1"
+pub const Info = struct {
+    title: []const u8 = default_title,
+    summary: ?[]const u8 = null,
+    description: ?[]const u8 = null,
+    termsOfService: ?[]const u8 = null, // link
+    contact: ?Contact = null,
+    license: ?License = null,
+    version: []const u8 = default_openapi_version, // "1.0.1"
 };
 
-const ExternalDocs = struct {
+pub const ExternalDocs = struct {
     description: []const u8,
     name: []const u8,
 };
 
-const Server = struct {
+pub const Server = struct {
     url: []const u8,
 };
 
-const Tag = struct {
+pub const Tag = struct {
     name: []const u8,
     description: []const u8,
     externalDocs: ?ExternalDocs,
 };
 
-const Content = struct {
+pub const Content = struct {
     name: []const u8,
     ref: []const u8, // #/components/schemas/Pet
 };
 
-const RequestBody = struct { description: []const u8, content: []Content, required: bool };
+pub const RequestBody = struct { description: []const u8, content: []Content, required: bool };
 
-const Path = struct {
+pub const Path = struct {
     path: []const u8,
     method: []const u8,
     summary: []const u8,
@@ -53,22 +55,51 @@ const Path = struct {
     requestBody: RequestBody,
 };
 
-const Properties = struct {
+pub const Properties = struct {
     type: []const u8, // "integer"
     format: []const u8, // "int32"
-    example: ?[]const u8,
+    example: ?[]const u8 = null, // Implement this later
+
+    pub inline fn parse(field: std.builtin.Type.StructField) Properties {
+        switch (@typeInfo(field.type)) {
+            .Int => std.debug.print("Found int. {s}\n", .{field.name}),
+            .Struct => std.debug.print("Found struct. {s}\n", .{field.name}),
+            .Bool => std.debug.print("Found boolean: {s}\n", .{field.name}),
+            else => |catchall| std.debug.print("Found unsupported type. {s}\n", .{@tagName(catchall)}),
+        }
+        return .{
+            .type = "integer",
+            .format = "int32",
+        };
+    }
 };
 
-const Schema = struct { name: []const u8, properties: []Properties };
+pub const Schema = struct {
+    name: []const u8,
+    properties: []Properties,
 
-const SecuritySchemes = struct {};
+    pub fn parse(comptime T: type) Schema {
+        if (@typeInfo(T) != .Struct) {
+            @compileError("Expected struct, found '" ++ @typeName(T) ++ "'");
+        }
+        const name = @typeName(T);
+        var properties: [std.meta.fields(T).len]Properties = undefined;
+        inline for (std.meta.fields(T), 0..) |field, i| {
+            properties[i] = Properties.parse(field);
+        }
+        return .{
+            .name = name,
+            .properties = &properties,
+        };
+    }
+};
 
-const Component = struct {
+pub const SecuritySchemes = struct {};
+
+pub const Component = struct {
     schemas: []Schema,
     requestBodies: []RequestBody = .{},
     securitySchemes: []SecuritySchemes = .{},
 };
 
-const Spec = struct { openapi: []const u8 = default_openapi_version, info: Info, externalDocs: ExternalDocs, servers: []Server, tags: []Tag, paths: []Path, components: []Component };
-
-fn generateSwaggerSpec() void {}
+pub const Spec = struct { openapi: []const u8 = default_openapi_version, info: Info, externalDocs: ExternalDocs, servers: []Server, tags: []Tag, paths: []Path, components: []Component };

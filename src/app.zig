@@ -2,17 +2,14 @@ const std = @import("std");
 const Request = @import("./request.zig").Request;
 const Response = @import("./response.zig").Response;
 const Method = @import("./http.zig").Method;
-const Router = @import("./route.zig").Router;
+const Router = @import("./router.zig").Router;
+const openapi = @import("./openapi.zig");
 const net = std.net;
 const http = std.http;
 const fs = std.fs;
 
 const default_host: []const u8 = "127.0.0.1";
 const default_port: u16 = 8080;
-
-const AppConfig = struct {
-    name: []const u8 = "Zippy App",
-};
 
 const RunConfig = struct {
     host: []const u8 = default_host,
@@ -23,10 +20,10 @@ pub const ServerError = error{ PortAlreadyInUse, Unknown };
 
 pub const App = struct {
     allocator: std.mem.Allocator,
-    config: AppConfig,
+    config: openapi.Info,
     root_router: Router,
 
-    pub fn init(allocator: std.mem.Allocator, config: AppConfig) App {
+    pub fn init(allocator: std.mem.Allocator, config: openapi.Info) App {
         return .{
             .allocator = allocator,
             .config = config,
@@ -75,5 +72,9 @@ pub const App = struct {
 
     pub fn mount(self: *App, comptime method: Method, comptime path: []const u8, comptime Handler: type) !void {
         try self.root_router.mount(method, path, Handler);
+    }
+
+    pub fn initSwaggerDocs(self: *App) void {
+        _ = self;
     }
 };
