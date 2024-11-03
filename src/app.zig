@@ -4,6 +4,7 @@ const Response = @import("./response.zig").Response;
 const Method = @import("./http.zig").Method;
 const Router = @import("./router.zig").Router;
 const openapi = @import("./openapi.zig");
+
 const net = std.net;
 const http = std.http;
 const fs = std.fs;
@@ -36,7 +37,6 @@ pub const App = struct {
     }
 
     /// Add middleware to be used by the application
-    /// Middleware is 'used'
     pub fn use(self: *App) void {
         _ = self;
     }

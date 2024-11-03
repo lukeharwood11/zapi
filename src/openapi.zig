@@ -67,6 +67,7 @@ pub const Properties = struct {
             .Bool => comptime parseBoolean(),
             .Array => comptime parseArray(field.type),
             .Pointer => comptime parsePointer(field.type),
+            .Float => comptime parseFloat(field.type),
             else => |catchall| @compileError("Failed to parse type '" ++ @tagName(catchall) ++ "'."),
         };
     }
@@ -77,7 +78,9 @@ pub const Properties = struct {
 
     fn parsePointer(comptime Pointer: type) Properties {
         const name = @typeName(Pointer);
-        if (std.mem.eql(u8, name, "[]const u8")) {}
+        if (std.mem.eql(u8, name, "[]const u8")) {
+            // string type
+        }
         return .{
             .type = "unknown",
             .format = "unknown",
@@ -146,4 +149,29 @@ pub const Component = struct {
     securitySchemes: []SecuritySchemes = .{},
 };
 
-pub const Spec = struct { openapi: []const u8 = default_openapi_version, info: Info, externalDocs: ExternalDocs, servers: []Server, tags: []Tag, paths: []Path, components: []Component };
+pub const Spec = struct {
+    openapi: []const u8 = default_openapi_version,
+    info: Info,
+    externalDocs: ExternalDocs,
+    servers: []Server,
+    tags: []Tag,
+    paths: []Path,
+    components: []Component,
+};
+
+pub const Document = struct {
+    allocator: std.mem.Allocator,
+    document: ?[]const u8 = null,
+
+    fn init(allocator: std.mem.Allocator) Document {
+        return .{
+            .allocator = allocator,
+        };
+    }
+
+    fn deinit(self: *Document) void {
+        _ = self;
+    }
+
+    fn generateDoc() void {}
+};

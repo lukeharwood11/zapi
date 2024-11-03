@@ -16,9 +16,9 @@ pub fn main() !void {
     try app.mount(.POST, "/api/v1/hello", struct {
         /// All fields must be `pub` to be registered by the openapi engine
         pub const Body = struct {
-            my: []const u8,
-            hello: i32 = 1,
-            world: i32 = 2,
+            string: []const u8,
+            integer: i32 = 1,
+            float: f32 = 2,
         };
         pub fn sayHelloWorld(_: *Request, res: *Response) void {
             res.send(.{

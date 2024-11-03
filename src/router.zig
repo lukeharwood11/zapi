@@ -26,14 +26,19 @@ const RouteHandlers = std.ArrayList(RouteHandler);
 pub const Router = struct {
     path: []const u8 = "",
     handlers: RouteHandlers,
+    allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) Router {
         return .{
             .handlers = RouteHandlers.init(allocator),
+            .allocator = allocator,
         };
     }
 
     pub fn deinit(self: *Router) void {
+        for (self.handlers.items) |handler| {
+            self.allocator.free(handler.metadata.name);
+        }
         self.handlers.deinit();
     }
 
@@ -47,24 +52,6 @@ pub const Router = struct {
         } else {
             // 404
         }
-        // TODO: make this generic
-        // const response_prefix = "HTTP/1.1 200 OK";
-        // file
-        // const file = try fs.cwd().openFile("index.html", .{ .mode = .read_only });
-        // const file = try fs.cwd().openFile("./src/openapi.html", .{ .mode = .read_only });
-
-        // defer file.close();
-        // file reader
-        // TODO: move this into a static file handler
-        // var reader = file.reader();
-        // const val = try reader.readAllAlloc(self.allocator, 8180);
-        // defer self.allocator.free(val);
-        // const r = try std.mem.concat(self.allocator, u8, &.{ (response_prefix ++ "\r\n\r\n")[0..], val });
-        // defer self.allocator.free(r);
-        // _ = try writer.writeAll(r);
-        // // end handlers
-        // const time_end = std.time.milliTimestamp();
-        // std.log.info("{s} {d:.2}ms - {s} - {s}", .{ @tagName(request.method), time_end - time_start, request.path, response_prefix });
     }
 
     /// Add a whole router to be handled by this router as a child router.
@@ -74,14 +61,6 @@ pub const Router = struct {
 
     /// Add a single route to be handled by the router
     pub fn mount(self: *Router, comptime method: Method, comptime path: []const u8, comptime Handler: type) !void {
-        // comptime var json: []const u8 = "";
-        // if (@hasField(Handler, "body")) {
-        //     inline for (std.meta.fields(Handler)) |field| {
-        //         json = json ++ field.name ++ ": " ++ @typeName(field.type) ++ ", ";
-        //     }
-        // } else {
-        //     @compileError("No body!");
-        // }
         comptime var func_count = 0;
         comptime var func: HandlerFn = undefined;
         var metadata: RouteHandlerMetadata = .{
@@ -108,6 +87,20 @@ pub const Router = struct {
         } else if (func_count == 0) {
             @compileError("Couldn't find a request handler method (note that the handler method must have the `pub` specifier).");
         }
+
+        // format the name to be the summary
+        var buf = std.ArrayList(u8).init(self.allocator);
+        for (0..metadata.name.len) |i| {
+            if (i == 0) {
+                try buf.append(std.ascii.toUpper(metadata.name[i]));
+            } else if (std.ascii.isLower(metadata.name[i - 1]) and std.ascii.isUpper(metadata.name[i])) {
+                try buf.appendSlice(&.{ ' ', metadata.name[i] });
+            } else {
+                try buf.append(metadata.name[i]);
+            }
+        }
+        metadata.name = try buf.toOwnedSlice();
+
         // at this point, func is initialized
         try self.handlers.append(.{
             .path = path,
